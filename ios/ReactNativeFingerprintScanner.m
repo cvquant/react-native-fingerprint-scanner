@@ -18,7 +18,23 @@ RCT_EXPORT_METHOD(isSensorAvailable: (RCTResponseSenderBlock)callback)
     NSError *error;
 
     if ([context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error]) {
-        callback(@[[NSNull null], @true]);
+        NSString *biometryType;
+        if (@available(iOS 11.0, *)) {
+            switch (context.biometryType) {
+                case LABiometryTypeFaceID:
+                    biometryType = @"FaceID";
+                    break;
+                case LABiometryTypeTouchID:
+                    biometryType = @"TouchID";
+                    break;
+                default:
+                    biometryType = @"None";
+                    break;
+            }
+        } else {
+            biometryType = @"TouchID";
+        }
+        callback(@[[NSNull null], biometryType]);
     } else {
         // Device does not support FingerprintScanner
         [self handleError:error callback:callback];
