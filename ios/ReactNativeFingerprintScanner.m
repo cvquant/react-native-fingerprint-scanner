@@ -18,7 +18,20 @@ RCT_EXPORT_METHOD(isSensorAvailable: (RCTResponseSenderBlock)callback)
     NSError *error;
 
     if ([context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error]) {
-        NSString *biometryType;
+        callback(@[[NSNull null]]);
+    } else {
+        // Device does not support FingerprintScanner
+        [self handleError:error callback:callback];
+        return;
+    }
+}
+
+RCT_EXPORT_METHOD(sensorType: (RCTResponseSenderBlock)callback)
+{
+    LAContext *context = [[LAContext alloc] init];
+    NSError *error;
+    NSString *biometryType;
+    if ([context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error]) {
         if (@available(iOS 11.0, *)) {
             switch (context.biometryType) {
                 case LABiometryTypeFaceID:
@@ -30,6 +43,21 @@ RCT_EXPORT_METHOD(isSensorAvailable: (RCTResponseSenderBlock)callback)
                 default:
                     biometryType = @"None";
                     break;
+            }
+        } else {
+            biometryType = @"TouchID";
+        }
+        callback(@[[NSNull null], biometryType]);
+    } else if (error.code == LAErrorTouchIDNotEnrolled){
+        if([[UIDevice currentDevice]userInterfaceIdiom]==UIUserInterfaceIdiomPhone) {
+            switch ((int)[[UIScreen mainScreen] nativeBounds].size.height) {
+                case 2436:
+                    // iphoneX
+                    biometryType = @"FaceID";
+                    break;
+                default:
+                    // all other
+                    biometryType = @"TouchID";
             }
         } else {
             biometryType = @"TouchID";
