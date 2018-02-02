@@ -48,7 +48,7 @@ RCT_EXPORT_METHOD(sensorType: (RCTResponseSenderBlock)callback)
             biometryType = @"TouchID";
         }
         callback(@[[NSNull null], biometryType]);
-    } else if (error.code == LAErrorTouchIDNotEnrolled){
+    } else if (error.code != LAErrorTouchIDNotAvailable){
         if([[UIDevice currentDevice]userInterfaceIdiom]==UIUserInterfaceIdiomPhone) {
             switch ((int)[[UIScreen mainScreen] nativeBounds].size.height) {
                 case 2436:
