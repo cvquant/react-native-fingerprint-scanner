@@ -18,7 +18,7 @@ RCT_EXPORT_METHOD(isSensorAvailable: (RCTResponseSenderBlock)callback)
     NSError *error;
 
     if ([context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error]) {
-        callback(@[[NSNull null]]);
+        callback(@[[NSNull null], @true]);
     } else {
         // Device does not support FingerprintScanner
         [self handleError:error callback:callback];
