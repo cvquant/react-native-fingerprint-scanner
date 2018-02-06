@@ -21,7 +21,51 @@ RCT_EXPORT_METHOD(isSensorAvailable: (RCTResponseSenderBlock)callback)
         callback(@[[NSNull null], @true]);
     } else {
         // Device does not support FingerprintScanner
-        callback(@[RCTMakeError(@"FingerprintScannerNotSupported", nil, nil)]);
+        [self handleError:error callback:callback];
+        return;
+    }
+}
+
+RCT_EXPORT_METHOD(sensorType: (RCTResponseSenderBlock)callback)
+{
+    LAContext *context = [[LAContext alloc] init];
+    NSError *error;
+    NSString *biometryType;
+    if ([context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error]) {
+        if (@available(iOS 11.0, *)) {
+            switch (context.biometryType) {
+                case LABiometryTypeFaceID:
+                    biometryType = @"FaceID";
+                    break;
+                case LABiometryTypeTouchID:
+                    biometryType = @"TouchID";
+                    break;
+                default:
+                    biometryType = @"None";
+                    break;
+            }
+        } else {
+            biometryType = @"TouchID";
+        }
+        callback(@[[NSNull null], biometryType]);
+    } else if (error.code != LAErrorTouchIDNotAvailable){
+        if([[UIDevice currentDevice]userInterfaceIdiom]==UIUserInterfaceIdiomPhone) {
+            switch ((int)[[UIScreen mainScreen] nativeBounds].size.height) {
+                case 2436:
+                    // iphoneX
+                    biometryType = @"FaceID";
+                    break;
+                default:
+                    // all other
+                    biometryType = @"TouchID";
+            }
+        } else {
+            biometryType = @"TouchID";
+        }
+        callback(@[[NSNull null], biometryType]);
+    } else {
+        // Device does not support FingerprintScanner
+        [self handleError:error callback:callback];
         return;
     }
 }
@@ -41,67 +85,75 @@ RCT_EXPORT_METHOD(authenticate: (NSString *)reason
     // Device has FingerprintScanner
     if ([context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error]) {
         // Attempt Authentication
-        [context evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
+        [context evaluatePolicy:LAPolicyDeviceOwnerAuthentication
                 localizedReason:reason
                           reply:^(BOOL success, NSError *error)
-         {
-             // Failed Authentication
-             if (error) {
-                 NSString *errorReason;
+        {
+            // Failed Authentication
+            if (error) {
+                [self handleError:error callback:callback];
+                return;
+            }
 
-                 switch (error.code) {
-                     case LAErrorAuthenticationFailed:
-                         errorReason = @"AuthenticationFailed";
-                         break;
-
-                     case LAErrorUserCancel:
-                         errorReason = @"UserCancel";
-                         break;
-
-                     case LAErrorUserFallback:
-                         errorReason = @"UserFallback";
-                         break;
-
-                     case LAErrorSystemCancel:
-                         errorReason = @"SystemCancel";
-                         break;
-
-                     case LAErrorPasscodeNotSet:
-                         errorReason = @"PasscodeNotSet";
-                         break;
-
-                     case LAErrorTouchIDNotAvailable:
-                         errorReason = @"FingerprintScannerNotAvailable";
-                         break;
-
-                     case LAErrorTouchIDNotEnrolled:
-                         errorReason = @"FingerprintScannerNotEnrolled";
-                         break;
-
-                     default:
-                         errorReason = @"FingerprintScannerUnknownError";
-                         break;
-                 }
-
-                 NSLog(@"Authentication failed: %@", errorReason);
-                 callback(@[RCTMakeError(errorReason, nil, nil)]);
-                 return;
-             }
-
-             if (success) {
-                 // Authenticated Successfully
-                 callback(@[[NSNull null], @"Authenticated with Fingerprint Scanner."]);
-                 return;
-             }
-
-             callback(@[RCTMakeError(@"AuthenticationFailed", nil, nil)]);
-         }];
+            if (success) {
+                // Authenticated Successfully
+                callback(@[[NSNull null], @"Authenticated with Fingerprint Scanner."]);
+                return;
+            }
+            [self handleError:error callback:callback];
+        }];
 
     } else {
         // Device does not support FingerprintScanner
-        callback(@[RCTMakeError(@"FingerprintScannerNotSupported", nil, nil)]);
+        [self handleError:error callback:callback];
         return;
     }
+}
+
+- (void) handleError: (NSError*)error
+            callback:(RCTResponseSenderBlock)callback {
+    NSString *errorReason = [self switchError:error];
+    NSLog(@"Authentication failed: %@", errorReason);
+    callback(@[RCTMakeError(errorReason, nil, nil)]);
+}
+
+- (NSString*) switchError: (NSError*) error {
+    NSString *errorReason;
+
+    switch (error.code) {
+        case LAErrorAuthenticationFailed:
+            errorReason = @"AuthenticationFailed";
+            break;
+
+        case LAErrorUserCancel:
+            errorReason = @"UserCancel";
+            break;
+
+        case LAErrorUserFallback:
+            errorReason = @"UserFallback";
+            break;
+
+        case LAErrorSystemCancel:
+            errorReason = @"SystemCancel";
+            break;
+
+        case LAErrorPasscodeNotSet:
+            errorReason = @"PasscodeNotSet";
+            break;
+
+        case LAErrorTouchIDNotAvailable:
+            errorReason = @"FingerprintScannerNotAvailable";
+            break;
+
+        case LAErrorTouchIDNotEnrolled:
+            errorReason = @"FingerprintScannerNotEnrolled";
+            break;
+
+        default:
+            errorReason = @"FingerprintScannerUnknownError";
+            break;
+    }
+    return errorReason;
 }
 
 @end
